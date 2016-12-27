@@ -14,6 +14,8 @@
 #include <X11/Xatom.h>
 #include <pango/pangocairo.h>
 #include <cairo-xlib.h>
+#include <xcb/xcb.h>
+#include <xcb/xcb_xrm.h>
 
 #include "x.h"
 #include "utils.h"
@@ -129,12 +131,32 @@ static color_t x_get_separator_color(color_t fg, color_t bg)
         }
 }
 
+static void set_dpi(void) {
+  xcb_connection_t *connection = xcb_connect(getenv("DISPLAY"), NULL);
+  xcb_xrm_database_t *xDB = xcb_xrm_database_from_default(connection);
+
+  char *xrmValue = NULL;
+  if (0 == xcb_xrm_resource_get_string(xDB, "dunst.dpi", NULL, &xrmValue)) {
+    int dpi = atoi(xrmValue);
+    if (dpi > 0) {
+      PangoFontMap *font_map = pango_cairo_font_map_get_default();
+      pango_cairo_font_map_set_resolution((PangoCairoFontMap *) font_map, dpi);
+    }
+  }
+
+  if (xrmValue) {
+    free(xrmValue);
+  }
+}
+
 static void x_cairo_setup(void)
 {
         cairo_ctx.surface = cairo_xlib_surface_create(xctx.dpy,
                         xctx.win, DefaultVisual(xctx.dpy, 0), WIDTH, HEIGHT);
 
         cairo_ctx.context = cairo_create(cairo_ctx.surface);
+
+        set_dpi();
 
         cairo_ctx.desc = pango_font_description_from_string(settings.font);
 
