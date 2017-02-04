@@ -1,18 +1,28 @@
 /* copyright 2013 Sascha Kruse and contributors (see LICENSE for licensing information) */
-#pragma once
+#ifndef DUNST_SETTINGS_H
+#define DUNST_SETTINGS_H
+
+enum alignment { left, center, right };
+enum icon_position_t { icons_left, icons_right, icons_off };
+enum separator_color { FOREGROUND, AUTO, FRAME, CUSTOM };
+enum follow_mode { FOLLOW_NONE, FOLLOW_MOUSE, FOLLOW_KEYBOARD };
 
 typedef struct _settings {
         bool print_notifications;
         bool allow_markup;
         bool plain_text;
         bool stack_duplicates;
+        bool hide_duplicates_count;
         char *font;
         char *normbgcolor;
         char *normfgcolor;
+        char *normframecolor;
         char *critbgcolor;
         char *critfgcolor;
+        char *critframecolor;
         char *lowbgcolor;
         char *lowfgcolor;
+        char *lowframecolor;
         char *format;
         int timeouts[3];
         char *icons[3];
@@ -29,7 +39,7 @@ typedef struct _settings {
         float bounce_freq;
         int sticky_history;
         int history_length;
-	int show_indicators;
+        int show_indicators;
         int verbosity;
         int word_wrap;
         int ignore_newline;
@@ -49,6 +59,7 @@ typedef struct _settings {
         char **dmenu_cmd;
         char *browser;
         enum icon_position_t icon_position;
+        int max_icon_size;
         char *icon_folders;
         enum follow_mode f_mode;
         bool always_run_script;
@@ -61,3 +72,6 @@ typedef struct _settings {
 extern settings_t settings;
 
 void load_settings(char *cmdline_config_path);
+
+#endif
+/* vim: set tabstop=8 shiftwidth=8 expandtab textwidth=0: */
