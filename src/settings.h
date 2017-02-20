@@ -2,17 +2,21 @@
 #ifndef DUNST_SETTINGS_H
 #define DUNST_SETTINGS_H
 
+#include <stdbool.h>
+
+#include "x.h"
+
 enum alignment { left, center, right };
 enum icon_position_t { icons_left, icons_right, icons_off };
 enum separator_color { FOREGROUND, AUTO, FRAME, CUSTOM };
 enum follow_mode { FOLLOW_NONE, FOLLOW_MOUSE, FOLLOW_KEYBOARD };
+enum markup_mode { MARKUP_NULL, MARKUP_NO, MARKUP_STRIP, MARKUP_FULL };
 
 typedef struct _settings {
         bool print_notifications;
-        bool allow_markup;
-        bool plain_text;
+        enum markup_mode markup;
         bool stack_duplicates;
-        bool hide_duplicates_count;
+        bool hide_duplicate_count;
         char *font;
         char *normbgcolor;
         char *normfgcolor;

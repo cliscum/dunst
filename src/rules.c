@@ -1,10 +1,11 @@
 /* copyright 2013 Sascha Kruse and contributors (see LICENSE for licensing information) */
 
-#include <glib.h>
+#include "rules.h"
+
 #include <fnmatch.h>
+#include <glib.h>
 
 #include "dunst.h"
-#include "rules.h"
 
 /*
  * Apply rule to notification.
@@ -15,10 +16,10 @@ void rule_apply(rule_t * r, notification * n)
                 n->timeout = r->timeout;
         if (r->urgency != -1)
                 n->urgency = r->urgency;
-        if (r->allow_markup != -1)
-                n->allow_markup = r->allow_markup;
-        if (r->plain_text != -1)
-                n->plain_text = r->plain_text;
+        if (r->history_ignore != -1)
+                n->history_ignore = r->history_ignore;
+        if (r->markup != MARKUP_NULL)
+                n->markup = r->markup;
         if (r->new_icon) {
                 if(n->icon)
                         g_free(n->icon);
@@ -61,9 +62,9 @@ void rule_init(rule_t * r)
         r->msg_urgency = -1;
         r->timeout = -1;
         r->urgency = -1;
-        r->allow_markup = -1;
-        r->plain_text = -1;
+        r->markup = MARKUP_NULL;
         r->new_icon = NULL;
+        r->history_ignore = false;
         r->fg = NULL;
         r->bg = NULL;
         r->format = NULL;

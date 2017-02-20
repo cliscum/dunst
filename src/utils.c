@@ -1,14 +1,11 @@
 /* copyright 2013 Sascha Kruse and contributors (see LICENSE for licensing information) */
 #define _GNU_SOURCE
-
-#include <string.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <glib.h>
-
 #include "utils.h"
-#include "dunst.h"
+
+#include <glib.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 char *string_replace_char(char needle, char replacement, char *haystack) {
         char *current = haystack;
@@ -29,7 +26,7 @@ char *string_replace_at(char *buf, int pos, int len, const char *repl)
         if (repl_len <= len) {
                 tmp = buf;
         } else {
-                tmp = malloc(size);
+                tmp = g_malloc(size);
         }
 
         memcpy(tmp, buf, pos);
@@ -37,7 +34,7 @@ char *string_replace_at(char *buf, int pos, int len, const char *repl)
         memmove(tmp + pos + repl_len, buf + pos + len, buf_len - (pos + len) + 1);
 
         if(tmp != buf) {
-                free(buf);
+                g_free(buf);
         }
 
         return tmp;
@@ -87,30 +84,10 @@ char *string_append(char *a, const char *b, const char *sep)
                 new = g_strconcat(a, b, NULL);
         else
                 new = g_strconcat(a, sep, b, NULL);
-        free(a);
+        g_free(a);
 
         return new;
 
-}
-
-char **string_to_argv(const char *s)
-{
-        char *str = strdup(s);
-        char **argv = NULL;
-        char *p = strtok (str, " ");
-        int n_spaces = 0;
-
-        while (p) {
-                argv = realloc (argv, sizeof (char*) * ++n_spaces);
-                argv[n_spaces-1] = g_strdup(p);
-                p = strtok (NULL, " ");
-        }
-        argv = realloc (argv, sizeof (char*) * (n_spaces+1));
-        argv[n_spaces] = NULL;
-
-        free(str);
-
-        return argv;
 }
 
 void string_strip_delimited(char *str, char a, char b)

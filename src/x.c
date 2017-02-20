@@ -1,28 +1,32 @@
 /* copyright 2013 Sascha Kruse and contributors (see LICENSE for licensing information) */
-#include <math.h>
-#include <sys/time.h>
-#include <ctype.h>
-#include <assert.h>
-#include <locale.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <X11/Xlib.h>
+#include "x.h"
+
 #include <X11/X.h>
+#include <X11/XKBlib.h>
 #include <X11/Xatom.h>
-#include <pango/pangocairo.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#ifdef XINERAMA
+#include <X11/extensions/Xinerama.h>
+#include <assert.h>
+#endif
 #include <cairo-xlib.h>
 #include <gdk/gdk.h>
+#include <locale.h>
+#include <math.h>
+#include <pango/pangocairo.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_xrm.h>
 
-#include "x.h"
-#include "utils.h"
 #include "dunst.h"
-#include "settings.h"
 #include "notification.h"
+#include "settings.h"
+#include "utils.h"
 
 #define WIDTH 400
 #define HEIGHT 400
@@ -185,17 +189,6 @@ static void r_setup_pango_layout(PangoLayout *layout, int width)
         }
         pango_layout_set_alignment(layout, align);
 
-}
-
-static void r_update_layouts_width(GSList *layouts, int width)
-{
-        width -= 2 * settings.h_padding;
-        width -= 2 * settings.frame_width;
-
-        for (GSList *iter = layouts; iter; iter = iter->next) {
-                colored_layout *cl = iter->data;
-                pango_layout_set_width(cl->l, width * PANGO_SCALE);
-        }
 }
 
 static void free_colored_layout(void *data)
@@ -365,14 +358,14 @@ static GdkPixbuf *get_pixbuf_from_path(char *icon_path)
                                 end = strchr(start, ':');
                                 if (end == NULL) end = strchr(settings.icon_folders, '\0'); /* end = end of string */
 
-                                current_folder = strndup(start, end - start);
+                                current_folder = g_strndup(start, end - start);
                                 /* try svg */
                                 maybe_icon_path = g_strconcat(current_folder, "/", icon_path, ".svg", NULL);
                                 if (!does_file_exist(maybe_icon_path)) {
                                         /* fallback to png */
                                         maybe_icon_path = g_strconcat(current_folder, "/", icon_path, ".png", NULL);
                                 }
-                                free(current_folder);
+                                g_free(current_folder);
 
                                 pixbuf = get_pixbuf_from_file(maybe_icon_path);
                                 g_free(maybe_icon_path);
@@ -413,10 +406,7 @@ static GdkPixbuf *get_pixbuf_from_raw_image(const RawImage *raw_image)
 
 static colored_layout *r_init_shared(cairo_t *c, notification *n)
 {
-        colored_layout *cl = malloc(sizeof(colored_layout));
-        if(cl == NULL) {
-                die("Unable to allocate memory", EXIT_FAILURE);
-        }
+        colored_layout *cl = g_malloc(sizeof(colored_layout));
         cl->l = pango_cairo_create_layout(c);
 
         if (!settings.word_wrap) {
@@ -672,10 +662,6 @@ void x_win_draw(void)
         dimension_t dim = calculate_dimensions(layouts);
         int width = dim.w;
         int height = dim.h;
-
-        if ((have_dynamic_width() || settings.shrink) && settings.align != left) {
-                r_update_layouts_width(layouts, width);
-        }
 
         cairo_t *c;
         cairo_surface_t *image_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
@@ -1152,7 +1138,7 @@ static void x_set_wm(Window win)
 
         XStoreName(xctx.dpy, win, title);
         XChangeProperty(xctx.dpy, win, _net_wm_title,
-                XInternAtom(xctx.dpy, "UTF8_STRING", False), 8,
+                XInternAtom(xctx.dpy, "UTF8_STRING", false), 8,
                 PropModeReplace, (unsigned char *) title, strlen(title));
 
         /* set window class */
@@ -1414,9 +1400,6 @@ void x_shortcut_init(keyboard_shortcut * ks)
         char *str = g_strdup(ks->str);
         char *str_begin = str;
 
-        if (str == NULL)
-                die("Unable to allocate memory", EXIT_FAILURE);
-
         while (strchr(str, '+')) {
                 char *mod = str;
                 while (*str != '+')
@@ -1451,7 +1434,7 @@ void x_shortcut_init(keyboard_shortcut * ks)
                 ks->is_valid = true;
         }
 
-        free(str_begin);
+        g_free(str_begin);
 }
 
 /* vim: set tabstop=8 shiftwidth=8 expandtab textwidth=0: */

@@ -1,15 +1,14 @@
 /* copyright 2013 Sascha Kruse and contributors (see LICENSE for licensing information) */
 
 #define _GNU_SOURCE
+#include "option_parser.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <glib.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <glib.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "option_parser.h"
 #include "utils.h"
 
 typedef struct _entry_t {
@@ -49,8 +48,7 @@ section_t *new_section(char *name)
         }
 
         section_count++;
-        sections = realloc(sections, sizeof(section_t) * section_count);
-        if(sections == NULL) die("Unable to allocate memory.\n", 1);
+        sections = g_realloc(sections, sizeof(section_t) * section_count);
         sections[section_count - 1].name = g_strdup(name);
         sections[section_count - 1].entries = NULL;
         sections[section_count - 1].entry_count = 0;
@@ -61,13 +59,13 @@ void free_ini(void)
 {
         for (int i = 0; i < section_count; i++) {
                 for (int j = 0; j < sections[i].entry_count; j++) {
-                        free(sections[i].entries[j].key);
-                        free(sections[i].entries[j].value);
+                        g_free(sections[i].entries[j].key);
+                        g_free(sections[i].entries[j].value);
                 }
-                free(sections[i].entries);
-                free(sections[i].name);
+                g_free(sections[i].entries);
+                g_free(sections[i].name);
         }
-        free(sections);
+        g_free(sections);
         section_count = 0;
         sections = NULL;
 }
@@ -91,7 +89,7 @@ void add_entry(char *section_name, char *key, char *value)
 
         s->entry_count++;
         int len = s->entry_count;
-        s->entries = realloc(s->entries, sizeof(entry_t) * len);
+        s->entries = g_realloc(s->entries, sizeof(entry_t) * len);
         s->entries[s->entry_count - 1].key = g_strdup(key);
         s->entries[s->entry_count - 1].value = clean_value(value);
 }
@@ -136,6 +134,11 @@ double ini_get_double(char *section, char *key, double def)
                 return def;
         else
                 return atof(value);
+}
+
+bool ini_is_set(char *ini_section, char *ini_key)
+{
+        return get_value(ini_section, ini_key) != NULL;
 }
 
 char *next_section(char *section)
@@ -201,14 +204,15 @@ char *clean_value(char *value)
 
 int load_ini_file(FILE * fp)
 {
-        char line[BUFSIZ];
-
         if (!fp)
                 return 1;
 
+        char *line = NULL;
+        size_t line_len = 0;
+
         int line_num = 0;
         char *current_section = NULL;
-        while (fgets(line, sizeof(line), fp) != NULL) {
+        while (getline(&line, &line_len, fp) != -1) {
                 line_num++;
 
                 char *start = g_strstrip(line);
@@ -219,17 +223,17 @@ int load_ini_file(FILE * fp)
                 if (*start == '[') {
                         char *end = strchr(start + 1, ']');
                         if (!end) {
-                                printf
-                                    ("Warning: invalid config file at line %d\n",
+                                fprintf(stderr,
+                                     "Warning: invalid config file at line %d\n",
                                      line_num);
-                                printf("Missing ']'\n");
+                                fprintf(stderr, "Missing ']'\n");
                                 continue;
                         }
 
                         *end = '\0';
 
                         if (current_section)
-                                free(current_section);
+                                g_free(current_section);
                         current_section = (g_strdup(start + 1));
                         new_section(current_section);
                         continue;
@@ -237,9 +241,10 @@ int load_ini_file(FILE * fp)
 
                 char *equal = strchr(start + 1, '=');
                 if (!equal) {
-                        printf("Warning: invalid config file at line %d\n",
+                        fprintf(stderr,
+                               "Warning: invalid config file at line %d\n",
                                line_num);
-                        printf("Missing '='\n");
+                        fprintf(stderr, "Missing '='\n");
                         continue;
                 }
 
@@ -251,32 +256,32 @@ int load_ini_file(FILE * fp)
                 if (quote) {
                         char *closing_quote = strchr(quote + 1, '"');
                         if (!closing_quote) {
-                                printf
-                                    ("Warning: invalid config file at line %d\n",
+                                fprintf(stderr,
+                                     "Warning: invalid config file at line %d\n",
                                      line_num);
-                                printf("Missing '\"'\n");
+                                fprintf(stderr, "Missing '\"'\n");
                                 continue;
                         }
-
-                        closing_quote = '\0';
                 } else {
                         char *comment = strpbrk(value, "#;");
                         if (comment)
-                                comment = '\0';
+                                *comment = '\0';
                 }
                 value = g_strstrip(value);
 
                 if (!current_section) {
-                        printf("Warning: invalid config file at line: %d\n",
+                        fprintf(stderr,
+                               "Warning: invalid config file at line: %d\n",
                                line_num);
-                        printf("Key value pair without a section\n");
+                        fprintf(stderr, "Key value pair without a section\n");
                         continue;
                 }
 
                 add_entry(current_section, key, value);
         }
+        free(line);
         if (current_section)
-                free(current_section);
+                g_free(current_section);
         return 0;
 }
 
@@ -302,7 +307,7 @@ int cmdline_find_option(char *key)
         /* look for first key */
         for (int i = 0; i < cmdline_argc; i++) {
                 if (strcmp(key1, cmdline_argv[i]) == 0) {
-                        free(key1);
+                        g_free(key1);
                         return i;
                 }
         }
@@ -311,13 +316,13 @@ int cmdline_find_option(char *key)
         if (key2) {
                 for (int i = 0; i < cmdline_argc; i++) {
                         if (strcmp(key2, cmdline_argv[i]) == 0) {
-                                free(key1);
+                                g_free(key1);
                                 return i;
                         }
                 }
         }
 
-        free(key1);
+        g_free(key1);
         return -1;
 }
 
@@ -379,6 +384,11 @@ int cmdline_get_bool(char *key, int def, char *description)
                 return true;
         else
                 return def;
+}
+
+bool cmdline_is_set(char *key)
+{
+        return cmdline_get_value(key) != NULL;
 }
 
 char *option_get_string(char *ini_section, char *ini_key, char *cmdline_key,
@@ -455,16 +465,16 @@ void cmdline_usage_append(char *key, char *type, char *description)
         if (!usage_str) {
                 usage_str =
                     g_strdup_printf("%-40s - %s\n", key_type, description);
-                free(key_type);
+                g_free(key_type);
                 return;
         }
 
         char *tmp;
         tmp =
             g_strdup_printf("%s%-40s - %s\n", usage_str, key_type, description);
-        free(key_type);
+        g_free(key_type);
 
-        free(usage_str);
+        g_free(usage_str);
         usage_str = tmp;
 
 }

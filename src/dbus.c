@@ -1,15 +1,15 @@
 /* copyright 2013 Sascha Kruse and contributors (see LICENSE for licensing information) */
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <glib.h>
-#include <string.h>
-#include <gio/gio.h>
-#include "dunst.h"
 #include "dbus.h"
+
+#include <gio/gio.h>
+#include <glib.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "dunst.h"
 #include "notification.h"
-#include "utils.h"
 #include "settings.h"
+#include "utils.h"
 
 GDBusConnection *dbus_conn;
 
@@ -94,7 +94,7 @@ void handle_method_call(GDBusConnection * connection,
                 on_get_server_information(connection, sender, parameters,
                                        invocation);
         } else {
-                printf("WARNING: sender: %s; unknown method_name: %s\n", sender,
+                fprintf(stderr, "WARNING: sender: %s; unknown method_name: %s\n", sender,
                        method_name);
         }
 }
@@ -110,7 +110,10 @@ static void on_get_capabilities(GDBusConnection * connection,
         builder = g_variant_builder_new(G_VARIANT_TYPE("as"));
         g_variant_builder_add(builder, "s", "actions");
         g_variant_builder_add(builder, "s", "body");
-        g_variant_builder_add(builder, "s", "body-markup");
+
+        if(settings.markup != MARKUP_NO)
+                g_variant_builder_add(builder, "s", "body-markup");
+
         value = g_variant_new("(as)", builder);
         g_variant_builder_unref(builder);
         g_dbus_method_invocation_return_value(invocation, value);
@@ -128,10 +131,7 @@ static void on_notify(GDBusConnection * connection,
         gchar *icon = NULL;
         gchar *summary = NULL;
         gchar *body = NULL;
-        Actions *actions = malloc(sizeof(Actions));
-        if(actions == NULL) {
-                die("Unable to allocate memory", EXIT_FAILURE);
-        }
+        Actions *actions = g_malloc0(sizeof(Actions));
         gint timeout = -1;
 
         /* hints */
@@ -141,10 +141,6 @@ static void on_notify(GDBusConnection * connection,
         gchar *bgcolor = NULL;
         gchar *category = NULL;
         RawImage *raw_icon = NULL;
-
-        actions->actions = NULL;
-        actions->count = 0;
-        actions->dmenu_str = NULL;
 
         {
                 GVariantIter *iter = g_variant_iter_new(parameters);
@@ -301,18 +297,17 @@ static void on_notify(GDBusConnection * connection,
         n->icon = icon;
         n->raw_icon = raw_icon;
         n->timeout = timeout;
-        n->allow_markup = settings.allow_markup;
-        n->plain_text = settings.plain_text;
+        n->markup = settings.markup;
         n->progress = (progress < 0 || progress > 100) ? 0 : progress + 1;
         n->urgency = urgency;
         n->category = category;
-        n->dbus_client = strdup(sender);
+        n->dbus_client = g_strdup(sender);
         if (actions->count > 0) {
                 n->actions = actions;
         } else {
                 n->actions = NULL;
                 g_strfreev(actions->actions);
-                free(actions);
+                g_free(actions);
         }
 
         for (int i = 0; i < ColLast; i++) {
@@ -359,7 +354,7 @@ static void on_get_server_information(GDBusConnection * connection,
 void notification_closed(notification * n, int reason)
 {
         if (!dbus_conn) {
-                printf("DEBUG: notification_closed but not (yet) connected\n");
+                fprintf(stderr, "ERROR: Tried to close notification but dbus connection not set!\n");
                 return;
         }
 
@@ -373,7 +368,8 @@ void notification_closed(notification * n, int reason)
                                       "NotificationClosed", body, &err);
 
         if (err) {
-                printf("notification_closed ERROR\n");
+                fprintf(stderr, "Unable to close notification: %s\n", err->message);
+                g_error_free(err);
         }
 
 }
@@ -390,7 +386,8 @@ void action_invoked(notification * n, const char *identifier)
                                       "ActionInvoked", body, &err);
 
         if (err) {
-                printf("ActionInvoked ERROR\n");
+                fprintf(stderr, "Unable to invoke action: %s\n", err->message);
+                g_error_free(err);
         }
 }
 
@@ -403,15 +400,16 @@ static void on_bus_acquired(GDBusConnection * connection,
 {
         guint registration_id;
 
+        GError *err = NULL;
+
         registration_id = g_dbus_connection_register_object(connection,
                                                             "/org/freedesktop/Notifications",
-                                                            introspection_data->
-                                                            interfaces[0],
+                                                            introspection_data->interfaces[0],
                                                             &interface_vtable,
-                                                            NULL, NULL, NULL);
+                                                            NULL, NULL, &err);
 
-        if (registration_id <= 0) {
-                fprintf(stderr, "Unable to register\n");
+        if (registration_id == 0) {
+                fprintf(stderr, "Unable to register dbus connection: %s\n", err->message);
                 exit(1);
         }
 }
@@ -431,7 +429,7 @@ static void on_name_lost(GDBusConnection * connection,
 
 static RawImage * get_raw_image_from_data_hint(GVariant *icon_data)
 {
-    RawImage *image = malloc(sizeof(RawImage));
+    RawImage *image = g_malloc(sizeof(RawImage));
     GVariant *data_variant;
     gsize expected_len;
 
@@ -453,7 +451,7 @@ static RawImage * get_raw_image_from_data_hint(GVariant *icon_data)
                " but got a " "length of %" G_GSIZE_FORMAT,
                expected_len,
                g_variant_get_size (data_variant));
-        free(image);
+        g_free(image);
         return NULL;
     }
 
